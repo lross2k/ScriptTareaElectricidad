@@ -1,7 +1,7 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
-
+#1
 # Abrir y leer archivo CSV
 with open('OCV(z).csv', mode = 'r' ) as read_file:
 
