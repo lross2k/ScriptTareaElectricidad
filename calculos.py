@@ -69,12 +69,15 @@ celda1 = Celdas(3250)
 
 # Implementar un menú para facilitar la revisión de resultados
 while(True):
-    x = input("Menú que se vea lindo:\n1. Interpolar dato ingresado\n2. Imprimir gráfica V/t\n . . .\n5. Valores de SOC inicio, fin,etc\nIngresar un número: ")
+    x = input("Menú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Imprimir gráfica V/t\n . . .\n5. Valores de SOC inicio, fin,etc\nIngresar un número: ")
     if x == "0":
         print("Programa finalizado")
         break
     elif x == "1":
         Interpolar()
+        continue
+    elif x=="2":
+        print("Llamar grafica de Mathplotlib")
         continue
     elif x == "5":
         datos = celda1.get_resultados()
