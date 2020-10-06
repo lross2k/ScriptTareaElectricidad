@@ -24,8 +24,11 @@ with open('OCV(z).csv', mode = 'r' ) as read_file:
 # n 'eficiencia de Coulomb'
 
 # Implementación para retornar el OCV de cualquier SOC dado mediante interpolación lineal
-def Interpolar():
-    print("\nFalta implementar esta función\n")
+def Interpolar(z):
+    if z in soc:
+        return ocv[ np.where( soc == z ) ]
+    else:
+        print("Interpolar")
 
 # Clase facilita manejar múltiples celdas al tratar cada una como referencias de un objeto
 class Celdas:
@@ -74,7 +77,8 @@ while(True):
         print("Programa finalizado")
         break
     elif x == "1":
-        Interpolar()
+        num = float( input("Ingresar valor de z entre 0.2 y 1: ") )
+        print(Interpolar(num))
         continue
     elif x=="2":
         print("Llamar grafica de Mathplotlib")
