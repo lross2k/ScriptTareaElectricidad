@@ -49,12 +49,15 @@ def Interpolar(z):
                 i = int(i / 2)
                 continue
             else:
-                if soc[ int(i * 1.5) ] < z:
-                    i = int (i * 1.5)
-                elif soc[ int( i * 1.25 ) ] < z:
-                    i = int (i * 1.25)
-                elif soc[ int( i * 1.05 ) ] < z:
-                    i = int (i * 1.05)
+                if i * 1.5 < len( soc ):
+                    if soc[ int(i * 1.5) ] < z and int(i * 1.05) != i:
+                        i = int (i * 1.5)
+                    elif soc[ int( i * 1.25 ) ] < z and int(i * 1.05) != i:
+                        i = int (i * 1.25)
+                    elif soc[ int( i * 1.05 ) ] < z and int(i * 1.05) != i:
+                        i = int (i * 1.05)
+                    else:
+                        i += 1
                 else:
                     i += 1
                 continue
@@ -63,19 +66,41 @@ def Interpolar(z):
 
 # Clase facilita manejar múltiples celdas al tratar cada una como referencias de un objeto
 class Celdas:
-
-    # Q 'capacidad nominal' carga que se puede entregar en [Ah]
+    
+    # Inicializar varibles
     cap_nominal = 0
     voltaje = 0
-    coriente = 0
-    # SOC[ z(t) ] 'state of charge', z(t) = 0 celda descargada, z(t) = 1 celda cargada
-    z_soc = 0.2
-    d_tiempo = 0.5
+    corriente = 0
+    ocv_de_z = 0
+    z_soc = 0
+    d_tiempo = 0
+    resistor = 0
+    nc = 0
+    nd = 0
+    k_total = 0
+    k = 0
 
     resultados = np.array([69,420])
 
-    def __init__(self, cap_nominal):
-        self.cap_nominal = cap_nominal
+    # Constructor define algunos datos constantes
+    def __init__(self):
+        self.cap_nominal = 3250
+        self.resistor = 0.0001
+        self.z_soc = 0.2
+        self.d_tiempo = 0.5 / 3600
+        self.nc = 0.99
+        self.nd = 1
+        self.k = 1
+
+    def volt(self):
+        return(self.ocv_de_z - self.resistor * self.corriente)
+
+    def corr(self, limite):
+        #return(soc[self.k - 1] - soc[self.k]) * (self.cap_nominal / (n * self.d_tiempo))
+        a = self.ocv_de_z - self.voltaje
+        b = a / self.resistor
+        b = float('%.4f'%(b))
+        return(b)   
 
     # ----------------------------------------------------------------------------------
     # IMPORTANTE, hay que guardar el SOC, SOC cargado y descargado de múltiples momentos
@@ -88,8 +113,37 @@ class Celdas:
     # ----------------------------------------------------------------------------------
 
     # Se definen métodos capaces de correr el proceso de carga/descarga
-    def cargar(self):
-        print("Falta implementar este método")
+    def cargar(self, limite, const, tasa_c):
+        if const == "CC":
+            self.corriente = self.cap_nominal * tasa_c
+            # Se detiene con ocv == 4.2 porque V(t) no llega a 4.2
+            while (self.ocv_de_z < limite):
+                self.z_soc = soc[self.k]
+                if ocv[self.k] != self.ocv_de_z:
+                    self.ocv_de_z = ocv[self.k]
+                self.voltaje = self.volt()
+                self.k += 1
+            self.k -= 1
+            self.k_total += self.k
+            print("OCV fin de primer periodo")
+            print(self.ocv_de_z) # Para pruebas
+        else:
+            while (self.corriente > limite):
+                corriente = self.corr(limite)
+                self.z_soc = soc[self.k]
+                if ocv[self.k] != self.ocv_de_z:
+                    self.ocv_de_z = ocv[self.k]
+                self.k -= 1
+                if corriente < limite:
+                    break
+                else:
+                    self.corriente = corriente
+            self.k += 1
+            self.k_total += self.k
+            print("Corriente fin de segundo periodo:")
+            print(self.corriente) # Para pruebas
+            print("K total")
+            print(self.k_total) # Más pruebas
 
     def descargar(self):
         print("Falta implementar este método")
@@ -99,7 +153,9 @@ class Celdas:
 
 # Correr el proceso de carga/descarga
 # Intentar no agregar toda la lógica aquí si no, hacer funciones dentro de la clase Celdas ^^^^^^
-celda1 = Celdas(3250)
+celda1 = Celdas()
+celda1.cargar(4.2, "CC", 0.5)
+celda1.cargar(500, "CV", 0)
 
 # Implementar un menú para facilitar la revisión de resultados
 while(True):
@@ -112,6 +168,7 @@ while(True):
         while(True):
             try:
                 num = float( input("Ingresar valor de z entre 0.2 y 1:\n>> ") )
+                num =  float( '%.4f'%(num) )
                 if num >= 0.2 and num <= 1:
                     print(Interpolar(num))
                     break
