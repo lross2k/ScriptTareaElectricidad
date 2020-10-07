@@ -24,7 +24,7 @@ with open('OCV(z).csv', mode = 'r' ) as read_file:
 # n 'eficiencia de Coulomb'
 
 # Implementación para retornar el OCV de cualquier SOC dado mediante interpolación lineal
-def Interpolar(z):
+def interpolar(z):
     if z in soc:
         return ocv[ np.where( soc == z )[0][0] ]
     else:
@@ -80,14 +80,15 @@ class Celdas:
     k_total = 0
     k = 0
 
-    resultados = np.array([69,420])
+    voltajes = np.array([])
+    tiempos = np.array([])
 
     # Constructor define algunos datos constantes
     def __init__(self):
         self.cap_nominal = 3250
         self.resistor = 0.0001
         self.z_soc = 0.2
-        self.d_tiempo = 0.5 / 3600
+        self.d_tiempo = 1 #0.5
         self.nc = 0.99
         self.nd = 1
         self.k = 1
@@ -118,28 +119,32 @@ class Celdas:
             self.corriente = self.cap_nominal * tasa_c
             # Se detiene con ocv == 4.2 porque V(t) no llega a 4.2
             while (self.ocv_de_z < limite):
-                self.z_soc = soc[self.k]
-                if ocv[self.k] != self.ocv_de_z:
-                    self.ocv_de_z = ocv[self.k]
+                self.z_soc = soc[int(self.k)]
+                if interpolar(self.z_soc) != self.ocv_de_z:
+                    self.ocv_de_z = interpolar(self.z_soc)
                 self.voltaje = self.volt()
-                self.k += 1
-            self.k -= 1
-            self.k_total += self.k
+                self.voltajes = np.append(self.voltajes, self.voltaje)
+                self.tiempos = np.append(self.tiempos, self.k_total)
+                self.k += self.d_tiempo
+                self.k_total += 1
+            self.k -= self.d_tiempo
             print("OCV fin de primer periodo")
             print(self.ocv_de_z) # Para pruebas
         else:
             while (self.corriente > limite):
                 corriente = self.corr(limite)
-                self.z_soc = soc[self.k]
-                if ocv[self.k] != self.ocv_de_z:
-                    self.ocv_de_z = ocv[self.k]
-                self.k -= 1
+                self.z_soc = soc[int(self.k)]
+                if interpolar(self.z_soc) != self.ocv_de_z:
+                    self.ocv_de_z = interpolar(self.z_soc)
+                self.k -= self.d_tiempo
+                self.k_total += 1
+                self.voltajes = np.append(self.voltajes, self.voltaje)
+                self.tiempos = np.append(self.tiempos, self.k_total)
                 if corriente < limite:
                     break
                 else:
                     self.corriente = corriente
-            self.k += 1
-            self.k_total += self.k
+            self.k += self.d_tiempo
             print("Corriente fin de segundo periodo:")
             print(self.corriente) # Para pruebas
             print("K total")
@@ -149,7 +154,7 @@ class Celdas:
         print("Falta implementar este método")
 
     def get_resultados(self):
-        return self.resultados
+        return np.array([self.voltajes, self.tiempos])
 
 # Correr el proceso de carga/descarga
 # Intentar no agregar toda la lógica aquí si no, hacer funciones dentro de la clase Celdas ^^^^^^
@@ -170,7 +175,7 @@ while(True):
                 num = float( input("Ingresar valor de z entre 0.2 y 1:\n>> ") )
                 num =  float( '%.4f'%(num) )
                 if num >= 0.2 and num <= 1:
-                    print(Interpolar(num))
+                    print(interpolar(num))
                     break
                 else:
                     print("Por favor ingresar un número dentro del rango especificado")
@@ -179,6 +184,15 @@ while(True):
                 print("Por favor sólo ingresar números")
     elif x=="2":
         print("Llamar grafica de Mathplotlib")
+        datos = celda1.get_resultados()
+        x = datos[1]
+        y = datos[0]
+        plt.step(x, y, label = 'awebo')
+        plt.plot(x, y)
+        plt.grid(axis='x', color='0.95')
+        plt.legend(title='Parameter where:')
+        plt.title('plt.step(where=...)')
+        plt.show()
         continue
     elif x == "5":
         datos = celda1.get_resultados()
