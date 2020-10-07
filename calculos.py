@@ -24,8 +24,42 @@ with open('OCV(z).csv', mode = 'r' ) as read_file:
 # n 'eficiencia de Coulomb'
 
 # Implementación para retornar el OCV de cualquier SOC dado mediante interpolación lineal
-def Interpolar():
-    print("\nFalta implementar esta función\n")
+def Interpolar(z):
+    if z in soc:
+        return ocv[ np.where( soc == z )[0][0] ]
+    else:
+        # Implementación de algoritmo para optimizar la búsqueda de x_0 y x_1
+        if len(soc) >= 2:
+            i = int(len(soc) / 2) - 1
+        while(True):
+            if soc[i] < z and soc[i + 1] > z or soc[i - 1] < z and soc[i] > z:
+                # Se almacenan x_0, x_1, y_0, y_1 en orden correcto
+                if soc[i] < z:
+                    x_0 = soc[i]
+                    y_0 = ocv[i]
+                    x_1 = soc[i + 1]
+                    y_1 = ocv[i + 1]
+                else:
+                    x_0 = soc[i - 1]
+                    y_0 = ocv[i - 1]
+                    x_1 = soc[i]
+                    y_1 = ocv[i]
+                break
+            elif soc[i] > z and soc[i - 1] > z:
+                i = int(i / 2)
+                continue
+            else:
+                if soc[ int(i * 1.5) ] < z:
+                    i = int (i * 1.5)
+                elif soc[ int( i * 1.25 ) ] < z:
+                    i = int (i * 1.25)
+                elif soc[ int( i * 1.05 ) ] < z:
+                    i = int (i * 1.05)
+                else:
+                    i += 1
+                continue
+        # Retornar valor interpolado
+        return ( y_0 + (z - x_0) * (y_1 - y_0) / (x_1 - x_0) )
 
 # Clase facilita manejar múltiples celdas al tratar cada una como referencias de un objeto
 class Celdas:
@@ -69,13 +103,23 @@ celda1 = Celdas(3250)
 
 # Implementar un menú para facilitar la revisión de resultados
 while(True):
-    x = input("Menú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Imprimir gráfica V/t\n . . .\n5. Valores de SOC inicio, fin,etc\nIngresar un número: ")
+    x = input("\nMenú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Imprimir gráfica V/t\n . . .\n5. Valores de SOC inicio, fin,etc\nIngresar un número:\n>> ")
+    print("")
     if x == "0":
         print("Programa finalizado")
         break
     elif x == "1":
-        Interpolar()
-        continue
+        while(True):
+            try:
+                num = float( input("Ingresar valor de z entre 0.2 y 1:\n>> ") )
+                if num >= 0.2 and num <= 1:
+                    print(Interpolar(num))
+                    break
+                else:
+                    print("Por favor ingresar un número dentro del rango especificado")
+                continue
+            except ValueError:
+                print("Por favor sólo ingresar números")
     elif x=="2":
         print("Llamar grafica de Mathplotlib")
         continue
