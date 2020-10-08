@@ -82,13 +82,15 @@ class Celdas:
 
     voltajes = np.array([])
     tiempos = np.array([])
+    socs = np.array([])
+    corrientes = np.array([])
 
     # Constructor define algunos datos constantes
     def __init__(self):
         self.cap_nominal = 3250
         self.resistor = 0.0001
         self.z_soc = 0.2
-        self.d_tiempo = 1 #0.5
+        self.d_tiempo = 1
         self.nc = 0.99
         self.nd = 1
         self.k = 1
@@ -101,17 +103,10 @@ class Celdas:
         a = self.ocv_de_z - self.voltaje
         b = a / self.resistor
         b = float('%.4f'%(b))
-        return(b)   
+        return(b)
 
-    # ----------------------------------------------------------------------------------
-    # IMPORTANTE, hay que guardar el SOC, SOC cargado y descargado de múltiples momentos
-    # porque el profe pide que el programa pueda dar estos datos
-    # ----------------------------------------------------------------------------------
-
-    # ----------------------------------------------------------------------------------
-    # IMPORTANTE, hay que guardar datos importantes para las gráficas que se piden, ej
-    # los puntos de cambio en SOC, V, i, etc SIMILAR A LO DE ARRIBA ^^^^^^^^
-    # ----------------------------------------------------------------------------------
+    def cap(self, n):
+        return (self.corriente * n * (0.5/ 3600)) / (soc[ int(self.k) ] - soc[ int(self.k - 1) ])
 
     # Se definen métodos capaces de correr el proceso de carga/descarga
     def cargar(self, limite, const, tasa_c):
@@ -123,13 +118,17 @@ class Celdas:
                 if interpolar(self.z_soc) != self.ocv_de_z:
                     self.ocv_de_z = interpolar(self.z_soc)
                 self.voltaje = self.volt()
+
+                # Almacenar los datos de cada iteración
                 self.voltajes = np.append(self.voltajes, self.voltaje)
                 self.tiempos = np.append(self.tiempos, self.k_total)
+                self.corrientes = np.append(self.corrientes, self.corriente)
+                self.socs = np.append(self.socs, self.z_soc)
+
                 self.k += self.d_tiempo
                 self.k_total += 1
-            self.k -= self.d_tiempo
-            print("OCV fin de primer periodo")
-            print(self.ocv_de_z) # Para pruebas
+            self.k = int(self.k - self.d_tiempo)
+            #self.cap_nominal = self.cap(self.nc)   ############
         else:
             while (self.corriente > limite):
                 corriente = self.corr(limite)
@@ -138,33 +137,55 @@ class Celdas:
                     self.ocv_de_z = interpolar(self.z_soc)
                 self.k -= self.d_tiempo
                 self.k_total += 1
+                
+                # Almacenar los datos de cada iteración
                 self.voltajes = np.append(self.voltajes, self.voltaje)
                 self.tiempos = np.append(self.tiempos, self.k_total)
+                self.corrientes = np.append(self.corrientes, self.corriente)
+                self.socs = np.append(self.socs, self.z_soc)
+
                 if corriente < limite:
                     break
                 else:
                     self.corriente = corriente
             self.k += self.d_tiempo
-            print("Corriente fin de segundo periodo:")
-            print(self.corriente) # Para pruebas
-            print("K total")
-            print(self.k_total) # Más pruebas
 
-    def descargar(self):
-        print("Falta implementar este método")
+    def descargar(self, limite, const, tasa_c):
+        if const == "CC":
+            self.corriente = self.cap_nominal * tasa_c
+            # Se detiene con v(t) == 3.2 porque ocv no llega más abajo
+            while (True):
+                self.z_soc = soc[int(self.k)]
+                if interpolar(self.z_soc) != self.ocv_de_z:
+                    self.ocv_de_z = interpolar(self.z_soc)
+                self.voltaje = self.volt()
+                
+                # Almacenar los datos de cada iteración
+                self.voltajes = np.append(self.voltajes, self.voltaje)
+                self.tiempos = np.append(self.tiempos, self.k_total)
+                self.corrientes = np.append(self.corrientes, self.corriente)
+                self.socs = np.append(self.socs, self.z_soc)
+
+                self.k -= self.d_tiempo
+                self.k_total += 1
+                if self.voltaje <= limite: break
+            self.k = int(self.k + self.d_tiempo)
+        # Celda se descarga a 1C hasta que V(t) = 3.2V, n = nd
+        #n = self.nd  ##########
 
     def get_resultados(self):
-        return np.array([self.voltajes, self.tiempos])
+        # Retorna voltajes, k's, corrientes, socs
+        return np.array([self.voltajes, self.tiempos, self.corrientes, self.socs])
 
 # Correr el proceso de carga/descarga
-# Intentar no agregar toda la lógica aquí si no, hacer funciones dentro de la clase Celdas ^^^^^^
 celda1 = Celdas()
 celda1.cargar(4.2, "CC", 0.5)
 celda1.cargar(500, "CV", 0)
+celda1.descargar(3.2, "CC", 1)
 
 # Implementar un menú para facilitar la revisión de resultados
 while(True):
-    x = input("\nMenú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Imprimir gráfica V/t\n . . .\n5. Valores de SOC inicio, fin,etc\nIngresar un número:\n>> ")
+    x = input("\nMenú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Gráfica Voltaje/t\n3. Gráfica Corriente/t\n4. Gráfica SOC/t\n5. Valores de SOC inicio, fin,etc\nIngresar un número:\n>> ")
     print("")
     if x == "0":
         print("Programa finalizado")
@@ -183,19 +204,46 @@ while(True):
             except ValueError:
                 print("Por favor sólo ingresar números")
     elif x=="2":
-        print("Llamar grafica de Mathplotlib")
+        # Grafica V/t
+        # Retorna voltajes, k's, corrientes, socs
         datos = celda1.get_resultados()
         x = datos[1]
         y = datos[0]
-        plt.step(x, y, label = 'awebo')
-        plt.plot(x, y)
+        plt.ylabel('Voltaje (V)')
+        plt.xlabel('Tiempo (k)')
+        plt.step(x, y) # , label = 'awebo'
         plt.grid(axis='x', color='0.95')
-        plt.legend(title='Parameter where:')
-        plt.title('plt.step(where=...)')
+        plt.title('Gráfica de Voltaje en función del tiempo')
+        plt.show()
+        continue
+    elif x=="3":
+        # Grafica i/t
+        # Retorna voltajes, k's, corrientes, socs
+        datos = celda1.get_resultados()
+        x = datos[1]
+        y = datos[2]
+        plt.ylabel('Corriente (mA)')
+        plt.xlabel('Tiempo (k)')
+        plt.step(x, y) # , label = 'awebo'
+        plt.grid(axis='x', color='0.95')
+        plt.title('Gráfica de Corriente en función del tiempo')
+        plt.show()
+        continue
+    elif x=="4":
+        # Grafica z/t
+        # Retorna voltajes, k's, corrientes, socs
+        datos = celda1.get_resultados()
+        x = datos[1]
+        y = datos[3]
+        plt.ylabel('SOC (?)')
+        plt.xlabel('Tiempo (k)')
+        plt.step(x, y) # , label = 'awebo'
+        plt.grid(axis='x', color='0.95')
+        plt.title('Gráfica del SOC en función al tiempo')
         plt.show()
         continue
     elif x == "5":
-        datos = celda1.get_resultados()
+        #datos = celda1.get_resultados()
         # Ejemplo de como imprimir los resultados de la celda
-        print("\nDato 1: %.2f\nDato 2: %.2f\n" % (datos[0], datos[1]))
-        continue
+        #print("\nDato 1: %.2f\nDato 2: %.2f\n" % (datos[0], datos[1]))
+        print("Falta implementar esta función")
