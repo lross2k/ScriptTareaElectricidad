@@ -98,11 +98,11 @@ class Celdas:
         self.k = 1
         self.puntos_soc = np.append(self.puntos_soc, self.z_soc)
 
-    def volt(self):
-        return(self.ocv_de_z - self.resistor * self.corriente)
+    def volt(self, fact):
+        return(self.ocv_de_z - self.resistor * self.corriente * fact)
 
     def corr(self, limite):
-        a = self.ocv_de_z - self.voltaje
+        a = self.voltaje - self.ocv_de_z
         b = a / self.resistor
         b = float('%.4f'%(b))
         return(b)
@@ -112,46 +112,45 @@ class Celdas:
 
     # Se definen métodos capaces de correr el proceso de carga/descarga
     def cargar(self, limite, const, tasa_c):
+        fact = -1
         if const == "CC":
             self.corriente = self.cap_nominal * tasa_c
-            # Se detiene con ocv == 4.2 porque V(t) no llega a 4.2
-            while (self.ocv_de_z < limite):
+            while (self.voltaje < limite):
                 self.z_soc = soc[int(self.k)]
                 if interpolar(self.z_soc) != self.ocv_de_z:
                     self.ocv_de_z = interpolar(self.z_soc)
-                self.voltaje = self.volt()
+                self.voltaje = self.volt(fact)
 
                 # Almacenar los datos de cada iteración
                 self.voltajes = np.append(self.voltajes, self.voltaje)
-                self.tiempos = np.append(self.tiempos, self.k_total  * 0.5/3600)
+                self.tiempos = np.append(self.tiempos, self.k_total  * 0.5/60)
                 self.corrientes = np.append(self.corrientes, self.corriente)
                 self.socs = np.append(self.socs, self.z_soc)
 
                 self.k += self.d_k
                 self.k_total += 1
-            self.k = int(self.k - self.d_k)
+            self.k -= self.d_k
         else:
             while (self.corriente > limite):
                 corriente = self.corr(limite)
                 self.z_soc = soc[int(self.k)]
                 if interpolar(self.z_soc) != self.ocv_de_z:
                     self.ocv_de_z = interpolar(self.z_soc)
-                self.k -= self.d_k
+                self.k += self.d_k
                 self.k_total += 1
                 
                 # Almacenar los datos de cada iteración
                 self.voltajes = np.append(self.voltajes, self.voltaje)
-                self.tiempos = np.append(self.tiempos, self.k_total * 0.5/3600 )
+                self.tiempos = np.append(self.tiempos, self.k_total * 0.5/60 )
                 self.corrientes = np.append(self.corrientes, self.corriente)
                 self.socs = np.append(self.socs, self.z_soc)
 
-                if corriente < limite:
-                    break
-                else:
-                    self.corriente = corriente
-            self.k += self.d_k
+                if corriente < limite: break
+                else: self.corriente = corriente
+            self.k -= self.d_k
 
     def descargar(self, limite, const, tasa_c):
+        fact = 1
         if const == "CC":
             self.corriente = self.cap_nominal * tasa_c
             # Se detiene con v(t) == 3.2 porque ocv no llega más abajo
@@ -159,11 +158,11 @@ class Celdas:
                 self.z_soc = soc[int(self.k)]
                 if interpolar(self.z_soc) != self.ocv_de_z:
                     self.ocv_de_z = interpolar(self.z_soc)
-                self.voltaje = self.volt()
+                self.voltaje = self.volt(fact)
                 
                 # Almacenar los datos de cada iteración
                 self.voltajes = np.append(self.voltajes, self.voltaje)
-                self.tiempos = np.append(self.tiempos, self.k_total * 0.5/3600 )
+                self.tiempos = np.append(self.tiempos, self.k_total * 0.5/60 )
                 self.corrientes = np.append(self.corrientes, self.corriente)
                 self.socs = np.append(self.socs, self.z_soc)
 
@@ -171,12 +170,10 @@ class Celdas:
                 self.k_total += 1
                 if self.voltaje <= limite: break
             self.k = int(self.k + self.d_k)
-        # Celda se descarga a 1C hasta que V(t) = 3.2V, n = nd
-        #n = self.nd  ##########
 
     def updt_points(self):
+        self.capacidades = np.append(self.capacidades, (self.cap_nominal * (self.z_soc - self.puntos_soc[len(self.puntos_soc) - 2])))
         self.puntos_soc = np.append(self.puntos_soc, self.z_soc)
-        self.capacidades = np.append(self.capacidades, (self.cap_nominal - self.cap(self.nc)))
 
     def get_resultados(self):
         # Retorna voltajes, k's, corrientes, socs
@@ -198,8 +195,9 @@ celda1.updt_points()
 
 # Implementar un menú para facilitar la revisión de resultados
 while(True):
-    x = input("\nMenú que se vea lindo:\n0. Terminar programa\n1. Interpolar dato ingresado\n2. Gráfica Voltaje/t\n3. Gráfica Corriente/t\n4. Gráfica SOC/t\n5. Valores de SOC inicio, fin,etc\nIngresar un número:\n>> ")
-    print("")
+    print("\n<<--------------- Menú bonito --------------->>")
+    x = input("0. Finalizar programa\n1. Interpolar dato ingresado\n2. Gráfica v/t\n3. Gráfica i/t\n4. Gráfica z/t\n5. Valores durante el proceso\n>>-------------------------------------------<<\n\nIngresar un número:\n>> ")
+    
     if x == "0":
         print("Programa finalizado")
         break
@@ -223,7 +221,7 @@ while(True):
         x = datos[1]
         y = datos[0]
         plt.ylabel('Voltaje (V)')
-        plt.xlabel('Tiempo (h)')
+        plt.xlabel('Tiempo (min)')
         plt.step(x, y) # , label = 'awebo'
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica de Voltaje en función del tiempo')
@@ -236,7 +234,7 @@ while(True):
         x = datos[1]
         y = datos[2]
         plt.ylabel('Corriente (mA)')
-        plt.xlabel('Tiempo (h)')
+        plt.xlabel('Tiempo (min)')
         plt.step(x, y) # , label = 'awebo'
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica de Corriente en función del tiempo')
@@ -249,7 +247,7 @@ while(True):
         x = datos[1]
         y = datos[3]
         plt.ylabel('SOC') # Unidades ??
-        plt.xlabel('Tiempo (h)')
+        plt.xlabel('Tiempo (min)')
         plt.step(x, y) # , label = 'awebo'
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica del SOC en función al tiempo')
@@ -258,5 +256,5 @@ while(True):
     elif x == "5":
         p_socs = celda1.get_puntos()
         caps = celda1.get_caps()
-        print("SOC inicial: %.2f \nSOC fin de carga: %.2f \nSOC fin descarga: %.2f" % (p_socs[0], p_socs[1], p_socs[2]))
-        print("Capacidad cargada: %.2f \nCapacidad descargada: %.2f" % (caps[0], caps[1]))
+        print("SOC inicial: %.4f \nSOC fin de carga: %.4f \nSOC fin descarga: %.4f" % (p_socs[0], p_socs[1], p_socs[2]))
+        print("Capacidad cargada: %.2f \nCapacidad descargada: %.2f" % (caps[1], caps[0]))
