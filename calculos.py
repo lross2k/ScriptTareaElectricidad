@@ -2,7 +2,7 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Abrir y leer archivo CSV
+# Estructura para abrir y leer archivo CSV
 with open('OCV(z).csv', mode = 'r' ) as read_file:
 
     content = csv.reader(read_file)
@@ -20,15 +20,12 @@ with open('OCV(z).csv', mode = 'r' ) as read_file:
     # Se almacenan ambas columnas de datos en un array multidimensional
     data = np.array([soc, ocv])
 
-# OCV(z) 'open circuit voltage' con z desde 0.2 hasta 1
-# n 'eficiencia de Coulomb'
-
-# Implementación para retornar el OCV de cualquier SOC dado mediante interpolación lineal
+# Algoritmo implementado para interpolar datos de manera optimizada
 def interpolar(z):
     if z in soc:
         return ocv[ np.where( soc == z )[0][0] ]
     else:
-        # Implementación de algoritmo para optimizar la búsqueda de x_0 y x_1
+        # Implementación de optimización para la búsqueda de x_0 y x_1
         if len(soc) >= 2:
             i = int(len(soc) / 2) - 1
         while(True):
@@ -64,7 +61,8 @@ def interpolar(z):
         # Retornar valor interpolado
         return ( y_0 + (z - x_0) * (y_1 - y_0) / (x_1 - x_0) )
 
-# Clase facilita manejar múltiples celdas al tratar cada una como referencias de un objeto
+# Se definen las celdas como objetos debido a la versatilidad del paradigma orientado a objetos para
+# manipular múltiples elementos con una misma funcionalidad, como lo podrían ser múltiples celdas
 class Celdas:
     
     # Inicializar varibles
@@ -80,6 +78,7 @@ class Celdas:
     k_total = 0
     k = 0
 
+    # Variables de tipo array
     voltajes = np.array([])
     tiempos = np.array([])
     socs = np.array([])
@@ -87,7 +86,7 @@ class Celdas:
     capacidades = np.array([])
     puntos_soc = np.array([])
 
-    # Constructor define algunos datos constantes
+    # Constructor define datos constantes
     def __init__(self):
         self.cap_nominal = 3250
         self.resistor = 0.0001
@@ -98,21 +97,21 @@ class Celdas:
         self.k = 1
         self.puntos_soc = np.append(self.puntos_soc, self.z_soc)
 
+    # Método para calcular voltaje en carga o descarga, fact -1 representa corriente negativa
     def volt(self, fact):
         return(self.ocv_de_z - self.resistor * self.corriente * fact)
 
+    # Método corr permite calcular el valor actual de la corriente
     def corr(self, limite):
         a = self.voltaje - self.ocv_de_z
         b = a / self.resistor
         b = float('%.4f'%(b))
         return(b)
 
-    def cap(self, n):
-        return (self.corriente * n * (0.5/ 3600)) / (soc[ int(self.k) ] - soc[ int(self.k - 1) ])
-
-    # Se definen métodos capaces de correr el proceso de carga/descarga
+    # Método de carga utilizado para iniciar cada proceso con límite de ya sea en CC o CV
     def cargar(self, limite, const, tasa_c):
         fact = -1
+        # Caso CC
         if const == "CC":
             self.corriente = self.cap_nominal * tasa_c
             while (self.voltaje < limite):
@@ -130,6 +129,7 @@ class Celdas:
                 self.k += self.d_k
                 self.k_total += 1
             self.k -= self.d_k
+        # En caso de ser CV
         else:
             while (self.corriente > limite):
                 corriente = self.corr(limite)
@@ -149,6 +149,7 @@ class Celdas:
                 else: self.corriente = corriente
             self.k -= self.d_k
 
+    # Método de descarga utilizado para iniciar cada proceso con límite en CC, no se requirió implementar para CV
     def descargar(self, limite, const, tasa_c):
         fact = 1
         if const == "CC":
@@ -171,21 +172,24 @@ class Celdas:
                 if self.voltaje <= limite: break
             self.k = int(self.k + self.d_k)
 
+    # Método updt_points permite solicitar el almacinamiento de las capacidades y el delta de capacidad en un momento dado
     def updt_points(self):
         self.capacidades = np.append(self.capacidades, (self.cap_nominal * (self.z_soc - self.puntos_soc[len(self.puntos_soc) - 2])))
         self.puntos_soc = np.append(self.puntos_soc, self.z_soc)
 
+    # Método get retorna un array multidimensional con los valores de voltaje, tiempo, corriente, soc para realizar cálculos o gráficas
     def get_resultados(self):
-        # Retorna voltajes, k's, corrientes, socs
         return np.array([self.voltajes, self.tiempos, self.corrientes, self.socs])
 
+    # Método get retorna array con los soc previamente solicitados para almacenamiento
     def get_puntos(self):
         return self.puntos_soc
 
+    # Método get retorna array con los delta capacidad previamente solicitados para almacenamiento
     def get_caps(self):
         return self.capacidades
 
-# Correr el proceso de carga/descarga
+# Instrucciones para llamar el proceso de carga - descarga indicado por el enunciado
 celda1 = Celdas()
 celda1.cargar(4.2, "CC", 0.5)
 celda1.cargar(500, "CV", 0)
@@ -193,7 +197,7 @@ celda1.updt_points()
 celda1.descargar(3.2, "CC", 1)
 celda1.updt_points()
 
-# Implementar un menú para facilitar la revisión de resultados
+# Menú simple para una mejor visualización del funcionamiento
 while(True):
     print("\n<<--------------- Menú bonito --------------->>")
     x = input("0. Finalizar programa\n1. Interpolar dato ingresado\n2. Gráfica v/t\n3. Gráfica i/t\n4. Gráfica z/t\n5. Valores durante el proceso\n>>-------------------------------------------<<\n\nIngresar un número:\n>> ")
@@ -202,6 +206,7 @@ while(True):
         print("Programa finalizado")
         break
     elif x == "1":
+        # Manejo de excepciones para prevenir errores por datos no casteables a float
         while(True):
             try:
                 num = float( input("Ingresar valor de z entre 0.2 y 1:\n>> ") )
@@ -216,45 +221,46 @@ while(True):
                 print("Por favor sólo ingresar números")
     elif x=="2":
         # Grafica V/t
-        # Retorna voltajes, k's, corrientes, socs
+        # Retorna voltajes, tiempos, corrientes, socs
         datos = celda1.get_resultados()
         x = datos[1]
         y = datos[0]
         plt.ylabel('Voltaje (V)')
         plt.xlabel('Tiempo (min)')
-        plt.step(x, y) # , label = 'awebo'
+        plt.step(x, y)
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica de Voltaje en función del tiempo')
         plt.show()
         continue
     elif x=="3":
         # Grafica i/t
-        # Retorna voltajes, k's, corrientes, socs
+        # Retorna voltajes, tiempos, corrientes, socs
         datos = celda1.get_resultados()
         x = datos[1]
         y = datos[2]
         plt.ylabel('Corriente (mA)')
         plt.xlabel('Tiempo (min)')
-        plt.step(x, y) # , label = 'awebo'
+        plt.step(x, y)
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica de Corriente en función del tiempo')
         plt.show()
         continue
     elif x=="4":
         # Grafica z/t
-        # Retorna voltajes, k's, corrientes, socs
+        # Retorna voltajes, tiempos, corrientes, socs
         datos = celda1.get_resultados()
         x = datos[1]
         y = datos[3]
-        plt.ylabel('SOC') # Unidades ??
+        plt.ylabel('SOC')
         plt.xlabel('Tiempo (min)')
-        plt.step(x, y) # , label = 'awebo'
+        plt.step(x, y)
         plt.grid(axis='x', color='0.95')
         plt.title('Gráfica del SOC en función al tiempo')
         plt.show()
         continue
     elif x == "5":
+        # Utiliza los gets del objeto para obtener la información
         p_socs = celda1.get_puntos()
         caps = celda1.get_caps()
         print("SOC inicial: %.4f \nSOC fin de carga: %.4f \nSOC fin descarga: %.4f" % (p_socs[0], p_socs[1], p_socs[2]))
-        print("Capacidad cargada: %.2f \nCapacidad descargada: %.2f" % (caps[1], caps[0]))
+        print("Capacidad cargada: %.2f \nCapacidad descargada: %.2f" % (caps[0], caps[1]))
