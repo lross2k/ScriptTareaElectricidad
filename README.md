@@ -1,9 +1,7 @@
-# ¿Por qué usar esto?
+# Tarea 2 para el curso de electricidad 1
 
-Git permite colaborar con mayor seguridad, orden y es bueno conocerlo.
+Este repositorio posee el archivo calculos.py, el cual es un script simple con funciones capaces de aproximar el funcionamiento de una celda electroquímica mediante el uso de métodos numéricos básicos y análisis de mediciones en un laboratorio
 
-## Reglas básicas:
+## ¿Por qué usamos un repositorio para la tarea?
 
-- Probar los cambios antes de realizar un commit grande al master
-- Para experimentar solicitar o usar un branch
-- Reportar problemas encontrados
+Se utilizó un repositorio de GitHub para garantizar mejor control de versiones y permitir a otros compañeros de trabajo aprender a usar estas tecnologías aunque sea en un nivel básico
